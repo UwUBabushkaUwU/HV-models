@@ -6,17 +6,23 @@ T_data = data(:, 2); % Temperature values
 % Convert temperatures from Celsius to Kelvin
 T_data_Kelvin = T_data + 273.15;
 
-% Function to calculate temperature with parameters C_1, C_2
-function T_calc = temp_function(params, t, i, T_initial, T_surroundings)
-    if(t< 0)
-        T_calc = T_surrounds;
+% Function to calculate temperature with parameters C_1, C_2, C_3
+function T_calc = temp_function(params, t, i, T_surroundings, t_data, T_data)
+    if t < 0
+        T_calc = T_surroundings;
         return;
     end
+    
+    % Find the index of the nearest time in t_data to the current time t
+    [~, idx] = min(abs(t_data - t));
+    T_body = T_data(idx) + 273.15; % Convert to Kelvin if needed
+
     C_1 = params(1);
     C_2 = params(2);
-    T_prev = temp_function(params,t-100)
+    C_3 = params(3);
+   
     % Calculate temperature
-    T_calc = C_1 * i^2 * t + C_2 * (T_prev^4 - T_surroundings^4);
+    T_calc = C_1 * i^2 * t - C_2 * (T_body^4 - T_surroundings^4) - C_3 * (T_body - T_surroundings) + T_body;
     
     % Check for NaN or Inf values
     if any(isnan(T_calc)) || any(isinf(T_calc))
@@ -25,7 +31,7 @@ function T_calc = temp_function(params, t, i, T_initial, T_surroundings)
 end
 
 % Initial guesses for the parameters
-initial_guess = [0.0003, 0.1]; % Adjust as needed
+initial_guess = [1, 0.001, 0.1]; % Adjust as needed
 
 % Given values (replace these with your actual values)
 C_rate = 1; % Example C rate
@@ -40,7 +46,7 @@ T_surroundings_Kelvin = T_surroundings + 273.15; % Convert to Kelvin
 
 % Fit the function to the data
 options = optimset('Display', 'iter'); % Show iteration information
-params_fitted = lsqcurvefit(@(params, t) temp_function(params, t, i, T_surroundings_Kelvin, T_surroundings_Kelvin), initial_guess, t_data, T_data_Kelvin, [], [], options);
+params_fitted = lsqcurvefit(@(params, t) temp_function(params, t, i, T_surroundings_Kelvin, t_data, T_data_Kelvin), initial_guess, t_data, T_data_Kelvin, [], [], options);
 
 % Display the fitted parameters
 disp('Fitted parameters:');
@@ -50,7 +56,7 @@ disp(params_fitted);
 t_plot = linspace(0, 4000, 100); % From 0 to 4000 with 100 points
 
 % Calculate the fitted temperature values
-T_fitted_Kelvin = temp_function(params_fitted, t_plot, i, T_surroundings_Kelvin, T_surroundings_Kelvin);
+T_fitted_Kelvin = arrayfun(@(t) temp_function(params_fitted, t, i, T_surroundings_Kelvin, t_data, T_data_Kelvin), t_plot);
 
 % Convert the fitted temperature values back to Celsius for plotting
 T_fitted_Celsius = T_fitted_Kelvin - 273.15;
